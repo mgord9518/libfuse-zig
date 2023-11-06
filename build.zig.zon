@@ -1,0 +1,19 @@
+.{
+    .name = "libfuse-zig",
+    .version = "0.0.0",
+
+    .paths = [][]const u8 {
+        "lib",
+        "libfuse_config",
+        "lib.zig",
+        "build.zig",
+        "build.zig.zon",
+    },
+
+    .dependencies = .{
+        .libfuse = .{
+            .url = "https://github.com/libfuse/libfuse/archive/refs/tags/fuse-3.16.2.tar.gz",
+            .hash = "1220b0b0f90561934b7a6e6accffc49a6a0cd02b68595630c5df65b10718f9836927",
+        },
+    },
+}
