@@ -1,0 +1,37 @@
+name: Automatic build
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: goto-bus-stop/setup-zig@v2
+
+      #    - name: Install deps
+      #      run: |
+      #        sudo apt update
+      #        sudo apt install liblzo2-dev
+
+    - name: Build (x86_64)
+      run: |
+        zig build
+
+        #    - name: Test
+        #      run: |
+        #        zig build test
+        #        zig build test -Doptimize=ReleaseSafe
+        #        zig build test -Doptimize=ReleaseFast
+        #        zig build test -Doptimize=ReleaseSmall
+
+    - name: Upload build
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "continuous"
+        prerelease: true
+        title: "Continuous Build"
+          #        files: |
