@@ -2,14 +2,22 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub fn build(b: *std.build.Builder) !void {
-    const prefix = thisDir();
-
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const libfuse_dep = b.dependency("libfuse", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     _ = b.addModule(
         "fuse",
-        .{ .source_file = .{ .path = prefix ++ "/lib.zig" } },
+        .{ .source_file = .{ .path = b.pathFromRoot("lib.zig") } },
+    );
+
+    _ = b.addModule(
+        "libfuse",
+        .{ .source_file = libfuse_dep.path("lib.zig") },
     );
 
     const exe = b.addExecutable(.{
@@ -49,20 +57,19 @@ pub const LinkOptions = struct {
 
 pub fn module(b: *std.Build, opts: LinkOptions) *std.Build.Module {
     _ = opts;
-    const prefix = thisDir();
 
     return b.createModule(.{
-        .source_file = .{ .path = prefix ++ "/lib.zig" },
+        .source_file = .{ .path = b.pathFromRoot("lib.zig") },
     });
 }
 
 pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
-    const prefix = thisDir();
+    var b = exe.step.owner;
 
     // The directory must be surrounded by quotes so that the C
     // preprocessor will substitute it as a string literal
     const quoted_fusermount_dir = std.fmt.allocPrint(
-        exe.step.owner.allocator,
+        b.allocator,
         "\"{s}\"",
         .{opts.fusermount_dir},
     ) catch {
@@ -72,13 +79,13 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
     if (opts.use_system_fuse) {
         exe.linkSystemLibrary("fuse3");
     } else {
-        const libfuse_dep = exe.step.owner.dependency("libfuse", .{
+        const libfuse_dep = b.dependency("libfuse", .{
             .target = exe.target,
             .optimize = exe.optimize,
         });
 
         exe.addIncludePath(libfuse_dep.path("include"));
-        exe.addIncludePath(.{ .path = prefix ++ "/libfuse_config" });
+        exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
 
         // TODO: configurable build opts
         exe.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);
