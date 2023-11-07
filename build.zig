@@ -7,7 +7,7 @@ pub fn build(b: *std.build.Builder) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    b.createModule(.{
+    _ = b.createModule(.{
         .source_file = .{ .path = prefix ++ "/lib.zig" },
     });
 
@@ -20,6 +20,8 @@ pub fn build(b: *std.build.Builder) !void {
 
     exe.target = target;
     exe.optimize = optimize;
+
+    exe.addModule("fuse", module(b, .{}));
 
     link(exe, .{});
 
