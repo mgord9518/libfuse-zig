@@ -14,6 +14,7 @@ pub fn build(b: *std.build.Builder) !void {
 
     exe.target = target;
     exe.optimize = optimize;
+
     exe.addModule("fuse", module(b, .{}));
 
     link(exe, .{});
