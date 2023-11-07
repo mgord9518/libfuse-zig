@@ -2,10 +2,14 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub fn build(b: *std.build.Builder) !void {
+    const prefix = thisDir();
+
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    b.addModule("fuse", module(b, .{}));
+    b.createModule(.{
+        .source_file = .{ .path = prefix ++ "/lib.zig" },
+    });
 
     const exe = b.addExecutable(.{
         .name = "hello",
