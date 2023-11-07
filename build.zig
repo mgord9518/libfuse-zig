@@ -7,9 +7,10 @@ pub fn build(b: *std.build.Builder) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    _ = b.createModule(.{
-        .source_file = .{ .path = prefix ++ "/lib.zig" },
-    });
+    _ = b.addModule(
+        "fuse",
+        .{ .source_file = .{ .path = prefix ++ "/lib.zig" } },
+    );
 
     const exe = b.addExecutable(.{
         .name = "hello",
