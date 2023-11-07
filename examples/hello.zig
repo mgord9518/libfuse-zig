@@ -23,7 +23,7 @@ pub fn main() !void {
         return;
     };
 
-    try fuse.main(
+    try fuse.run(
         allocator,
         &[_][:0]const u8{
             argv0,

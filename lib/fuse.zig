@@ -4,6 +4,8 @@ const std = @import("std");
 const os = std.os;
 
 const c = @cImport({
+    @cDefine("_FILE_OFFSET_BITS", "64");
+    @cDefine("FUSE_USE_VERSION", "312");
     @cInclude("fuse.h");
 });
 
@@ -60,7 +62,7 @@ extern fn fuse_main_real(
     private_data: *const anyopaque,
 ) c_int;
 
-pub fn main(
+pub fn run(
     allocator: std.mem.Allocator,
     args: []const [:0]const u8,
     comptime operations: anytype,

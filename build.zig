@@ -20,6 +20,15 @@ pub fn build(b: *std.build.Builder) !void {
         .{ .source_file = libfuse_dep.path("lib.zig") },
     );
 
+    const lib = b.addStaticLibrary(.{
+        .name = "fuse",
+        .root_source_file = .{ .path = "lib.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+
+    link(lib, .{});
+
     const exe = b.addExecutable(.{
         .name = "hello",
         .root_source_file = .{ .path = "examples/hello.zig" },
@@ -27,14 +36,15 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = optimize,
     });
 
-    exe.target = target;
-    exe.optimize = optimize;
-
     exe.addModule("fuse", module(b, .{}));
 
-    link(exe, .{});
+    exe.addIncludePath(libfuse_dep.path("include"));
+    exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
+
+    exe.linkLibrary(lib);
 
     b.installArtifact(exe);
+    b.installArtifact(lib);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
@@ -68,13 +78,14 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
 
     // The directory must be surrounded by quotes so that the C
     // preprocessor will substitute it as a string literal
-    const quoted_fusermount_dir = std.fmt.allocPrint(
+    var quoted_fusermount_dir = std.fmt.allocPrint(
         b.allocator,
         "\"{s}\"",
         .{opts.fusermount_dir},
     ) catch {
         @panic("OOM");
     };
+    defer b.allocator.free(quoted_fusermount_dir);
 
     if (opts.use_system_fuse) {
         exe.linkSystemLibrary("fuse3");
@@ -91,7 +102,7 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
         exe.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);
         exe.defineCMacro("_REENTRANT", null);
         exe.defineCMacro("HAVE_LIBFUSE_PRIVATE_CONFIG_H", null);
-        exe.defineCMacro("_FILE_OFFSET_BITS", "64");
+        //        exe.defineCMacro("_FILE_OFFSET_BITS", "64");
         exe.defineCMacro("FUSE_USE_VERSION", "312");
 
         exe.defineCMacro("HAVE_COPY_FILE_RANGE", null);
