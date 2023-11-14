@@ -4,7 +4,7 @@
 
     .paths = [][]const u8 {
         "lib",
-        "libfuse_config",
+        "libfuse_headers",
         "lib.zig",
         "build.zig",
         "build.zig.zon",
