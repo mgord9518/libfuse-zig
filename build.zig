@@ -38,8 +38,6 @@ pub fn build(b: *std.build.Builder) !void {
 
     exe.addModule("fuse", module(b, .{}));
 
-    exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_headers") });
-
     exe.linkLibrary(lib);
 
     b.installArtifact(exe);
@@ -90,7 +88,8 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
             .optimize = exe.optimize,
         });
 
-        exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_headers") });
+        exe.addIncludePath(libfuse_dep.path("include"));
+        exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
 
         // TODO: configurable build opts
         exe.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);

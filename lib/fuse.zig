@@ -3,12 +3,6 @@
 const std = @import("std");
 const os = std.os;
 
-const c = @cImport({
-    @cDefine("_FILE_OFFSET_BITS", "64");
-    @cDefine("FUSE_USE_VERSION", "312");
-    @cInclude("fuse.h");
-});
-
 pub const FuseError = error{
     InvalidArgument,
     NoMountPoint,
@@ -96,6 +90,10 @@ fn genOps(
     var ops = LibFuseOperations{};
 
     // TODO: refactor
+    if (@hasDecl(Operations, "init")) {
+        ops.readdir = Operations.init;
+    }
+
     if (@hasDecl(Operations, "readDir")) {
         ops.readdir = struct {
             pub fn fuse_readdir(path: [*:0]const u8, fd: FillDir, off: os.off_t, fi: *FileInfo, flags: ReadDirFlags) callconv(.C) E {
@@ -245,23 +243,93 @@ fn genOps(
     return ops;
 }
 
-pub inline fn context() *Context {
-    return c.fuse_get_context();
-}
+// TODO: reimplement
+//pub inline fn context() *Context {
+//    return c.fuse_get_context();
+//}
 
 // Convenience function to fetch FUSE private data without casting
-pub inline fn privateDataAs(comptime T: type) T {
-    return @as(*T, @ptrCast(@alignCast(context().private_data))).*;
-}
+//pub inline fn privateDataAs(comptime T: type) T {
+//    return @as(*T, @ptrCast(@alignCast(context().private_data))).*;
+//}
 
-pub const ReadDirFlags = c.fuse_readdir_flags;
-pub const ConnectionInfo = c.fuse_conn_info;
-pub const Config = c.fuse_config;
-pub const Context = c.fuse_context;
-pub const PollHandle = c.fuse_pollhandle;
-pub const BufVec = c.fuse_bufvec;
+// TODO: finish
+//pub const StatVfs = extern struct {
+//    bsize: c_ulong,
+//    frsize: c_ulong,
+//};
 
-pub const StatVfs = c.struct_statvfs;
+pub const ConnectionInfo = extern struct {
+    proto_major: c_uint,
+    proto_minor: c_uint,
+    max_write: c_uint,
+    max_read: c_uint,
+    max_readahead: c_uint,
+    capable: c_uint,
+    want: c_uint,
+    max_background: c_uint,
+    congestion_threshold: c_uint,
+    time_gran: c_uint,
+
+    reserved: [22]c_uint,
+};
+
+pub const ReadDirFlags = enum(c_int) {
+    readdir_plus = 1,
+};
+
+pub const Config = extern struct {
+    set_gid: c_int,
+    gid: c_uint,
+
+    set_uid: c_int,
+    uid: c_uint,
+
+    set_mode: c_int,
+    umask: c_uint,
+
+    entry_timeout: f64,
+    negative_timeout: f64,
+    attr_timeout: f64,
+
+    intr: c_int,
+    intr_signal: c_int,
+
+    remember: c_int,
+    hard_remove: c_int,
+    use_ino: c_int,
+    readdir_ino: c_int,
+    direct_io: c_int,
+    kernel_cache: c_int,
+    auto_cache: c_int,
+    no_rofd_flush: c_int,
+
+    ac_attr_timeout_set: c_int,
+    ac_attr_timeout: f64,
+
+    nullpath_ok: c_int,
+
+    parallel_direct_writes: c_int,
+
+    show_help: c_int,
+    modules: [*]const u8,
+    debug: c_int,
+};
+
+pub const BufVec = extern struct {
+    count: usize,
+    idx: usize,
+    off: usize,
+    buf: [*]FuseBuf,
+};
+
+pub const FuseBuf = extern struct {
+    size: usize,
+    fuse_buf_flags: c_int,
+    mem: *anyopaque,
+    fd: c_int,
+    off: std.os.off_t,
+};
 
 pub const FillDir = packed struct {
     buf: *anyopaque,
@@ -339,34 +407,34 @@ pub const LibFuseOperations = extern struct {
     truncate: ?*const fn ([*:0]const u8, os.off_t, *FileInfo) callconv(.C) E = null,
     open: ?*const fn ([*:0]const u8, *FileInfo) callconv(.C) E = null,
     read: ?*const fn ([*:0]const u8, [*]u8, usize, os.off_t, *FileInfo) callconv(.C) c_int = null,
-    //read: ?*const fn ([*:0]const u8, []u8, os.off_t, *FileInfo) c_int = null,
     write: ?*const fn ([*:0]const u8, [*]const u8, usize, os.off_t, *FileInfo) callconv(.C) c_int = null,
-    statfs: ?*const fn ([*:0]const u8, *StatVfs) callconv(.C) E = null,
+
+    //    statfs: ?*const fn ([*:0]const u8, *StatVfs) callconv(.C) E = null,
+    statfs: ?*anyopaque = null,
+
     flush: ?*const fn ([*:0]const u8, *FileInfo) callconv(.C) E = null,
     release: ?*const fn ([*:0]const u8, *FileInfo) callconv(.C) E = null,
     fsync: ?*const fn ([*:0]const u8, c_int, *FileInfo) callconv(.C) E = null,
-
     setxattr: ?*const fn ([*:0]const u8, [*:0]const u8, [*]const u8, usize, c_int) callconv(.C) E = null,
     getxattr: ?*const fn ([*:0]const u8, [*:0]const u8, [*]u8, usize) callconv(.C) E = null,
     listxattr: ?*const fn ([*:0]const u8, [*]u8, usize) callconv(.C) E = null,
-
     removexattr: ?*const fn ([*:0]const u8, [*:0]const u8) callconv(.C) E = null,
     opendir: ?*const fn ([*:0]const u8, *FileInfo) callconv(.C) E = null,
     readdir: ?*const fn ([*:0]const u8, FillDir, os.off_t, *FileInfo, ReadDirFlags) callconv(.C) E = null,
-
     releasedir: ?*const fn ([*:0]const u8, *FileInfo) callconv(.C) E = null,
     fsyncdir: ?*const fn ([*:0]const u8, c_int, *FileInfo) callconv(.C) E = null,
     access: ?*const fn ([*:0]const u8, c_int) callconv(.C) E = null,
     init: ?*const fn (*ConnectionInfo, *Config) callconv(.C) ?*anyopaque = null,
-
     destroy: ?*const fn (*anyopaque) callconv(.C) void = null,
     create: ?*const fn ([*:0]const u8, os.mode_t, *FileInfo) callconv(.C) E = null,
     lock: ?*const fn ([*:0]const u8, *FileInfo, LockFlags, *os.Flock) callconv(.C) c_int = null,
     utimens: ?*const fn ([*:0]const u8, *const [2]os.timespec, *FileInfo) callconv(.C) c_int = null,
     bmap: ?*const fn ([*:0]const u8, usize, *u64) callconv(.C) c_int = null,
-
     ioctl: ?*const fn ([*:0]const u8, c_int, *anyopaque, *FileInfo, c_uint, *anyopaque) callconv(.C) c_int = null,
-    poll: ?*const fn ([*:0]const u8, *FileInfo, *PollHandle, *c_uint) callconv(.C) c_int = null,
+
+    poll: ?*anyopaque = null,
+    //    poll: ?*const fn ([*:0]const u8, *FileInfo, *PollHandle, *c_uint) callconv(.C) c_int = null,
+    //
     write_buf: ?*const fn ([*:0]const u8, *BufVec, os.off_t, *FileInfo) callconv(.C) c_int = null,
     read_buf: ?*const fn ([*:0]const u8, [*c][*c]BufVec, usize, os.off_t, *FileInfo) callconv(.C) c_int = null,
     flock: ?*const fn ([*:0]const u8, *FileInfo, c_int) callconv(.C) c_int = null,
