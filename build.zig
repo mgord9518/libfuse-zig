@@ -38,8 +38,7 @@ pub fn build(b: *std.build.Builder) !void {
 
     exe.addModule("fuse", module(b, .{}));
 
-    exe.addIncludePath(libfuse_dep.path("include"));
-    exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
+    exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_headers") });
 
     exe.linkLibrary(lib);
 
@@ -54,10 +53,6 @@ pub fn build(b: *std.build.Builder) !void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
-}
-
-pub inline fn thisDir() []const u8 {
-    return comptime std.fs.path.dirname(@src().file) orelse unreachable;
 }
 
 pub const LinkOptions = struct {
@@ -95,14 +90,11 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
             .optimize = exe.optimize,
         });
 
-        exe.addIncludePath(libfuse_dep.path("include"));
-        exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
+        exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_headers") });
 
         // TODO: configurable build opts
         exe.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);
         exe.defineCMacro("_REENTRANT", null);
-        exe.defineCMacro("HAVE_LIBFUSE_PRIVATE_CONFIG_H", null);
-        //        exe.defineCMacro("_FILE_OFFSET_BITS", "64");
         exe.defineCMacro("FUSE_USE_VERSION", "312");
 
         exe.defineCMacro("HAVE_COPY_FILE_RANGE", null);
