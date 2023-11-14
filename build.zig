@@ -38,6 +38,7 @@ pub fn build(b: *std.build.Builder) !void {
 
     exe.addModule("fuse", module(b, .{}));
 
+    exe.addIncludePath(libfuse_dep.path("include"));
     exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_headers") });
 
     exe.linkLibrary(lib);
@@ -90,6 +91,7 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
             .optimize = exe.optimize,
         });
 
+        exe.addIncludePath(libfuse_dep.path("include"));
         exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_headers") });
 
         // TODO: configurable build opts
