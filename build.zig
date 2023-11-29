@@ -95,6 +95,7 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
         exe.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);
         exe.defineCMacro("_REENTRANT", null);
         exe.defineCMacro("FUSE_USE_VERSION", "312");
+        exe.defineCMacro("_FILE_OFFSET_BITS", "64");
 
         exe.defineCMacro("HAVE_COPY_FILE_RANGE", null);
         exe.defineCMacro("HAVE_FALLOCATE", null);
