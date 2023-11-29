@@ -8,7 +8,7 @@ const S = std.os.linux.S;
 const file_contents = "Hello, world!\n";
 
 pub fn main() !void {
-    var allocator = std.heap.page_allocator;
+    const allocator = std.heap.page_allocator;
 
     var args_it = std.process.args();
 

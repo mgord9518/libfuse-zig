@@ -71,7 +71,7 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
 
     // The directory must be surrounded by quotes so that the C
     // preprocessor will substitute it as a string literal
-    var quoted_fusermount_dir = std.fmt.allocPrint(
+    const quoted_fusermount_dir = std.fmt.allocPrint(
         b.allocator,
         "\"{s}\"",
         .{opts.fusermount_dir},
