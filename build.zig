@@ -20,6 +20,18 @@ pub fn build(b: *std.build.Builder) !void {
         .{ .source_file = libfuse_dep.path("lib.zig") },
     );
 
+    const use_system_fuse = b.option(
+        bool,
+        "use-system-fuse",
+        "use system FUSE3 library instead of vendored (default: false)",
+    ) orelse false;
+
+    const fusermount_dir = b.option(
+        []const u8,
+        "fusermount_dir",
+        "The directory to search for fusermount on the host system",
+    ) orelse "/usr/local/bin";
+
     const lib = b.addStaticLibrary(.{
         .name = "fuse",
         .root_source_file = .{ .path = "lib.zig" },
@@ -27,94 +39,51 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = optimize,
     });
 
-    link(lib, .{});
-
-    const exe = b.addExecutable(.{
-        .name = "hello",
-        .root_source_file = .{ .path = "examples/hello.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-
-    exe.addModule("fuse", module(b, .{}));
-
-    exe.linkLibrary(lib);
-
-    b.installArtifact(exe);
-    b.installArtifact(lib);
-
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
-
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
-}
-
-pub const LinkOptions = struct {
-    use_system_fuse: bool = false,
-    fusermount_dir: []const u8 = "/usr/local/bin",
-};
-
-pub fn module(b: *std.Build, opts: LinkOptions) *std.Build.Module {
-    _ = opts;
-
-    return b.createModule(.{
-        .source_file = .{ .path = b.pathFromRoot("lib.zig") },
-    });
-}
-
-pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
-    var b = exe.step.owner;
+    const opts = b.addOptions();
+    opts.addOption(bool, "use_system_fuse", use_system_fuse);
+    opts.addOption([]const u8, "fusermount_dir", fusermount_dir);
 
     // The directory must be surrounded by quotes so that the C
     // preprocessor will substitute it as a string literal
     const quoted_fusermount_dir = std.fmt.allocPrint(
         b.allocator,
         "\"{s}\"",
-        .{opts.fusermount_dir},
+        .{fusermount_dir},
     ) catch {
         @panic("OOM");
     };
     defer b.allocator.free(quoted_fusermount_dir);
 
-    if (opts.use_system_fuse) {
-        exe.linkSystemLibrary("fuse3");
+    if (use_system_fuse) {
+        lib.linkSystemLibrary("fuse3");
     } else {
-        const libfuse_dep = b.dependency("libfuse", .{
-            .target = exe.target,
-            .optimize = exe.optimize,
-        });
-
-        exe.addIncludePath(libfuse_dep.path("include"));
-        exe.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
+        lib.addIncludePath(libfuse_dep.path("include"));
+        lib.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
 
         // TODO: configurable build opts
-        exe.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);
-        exe.defineCMacro("_REENTRANT", null);
-        exe.defineCMacro("FUSE_USE_VERSION", "312");
-        exe.defineCMacro("_FILE_OFFSET_BITS", "64");
+        lib.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);
+        lib.defineCMacro("_REENTRANT", null);
+        lib.defineCMacro("FUSE_USE_VERSION", "312");
+        lib.defineCMacro("_FILE_OFFSET_BITS", "64");
 
-        exe.defineCMacro("HAVE_COPY_FILE_RANGE", null);
-        exe.defineCMacro("HAVE_FALLOCATE", null);
-        exe.defineCMacro("HAVE_FDATASYNC", null);
-        exe.defineCMacro("HAVE_FORK", null);
-        exe.defineCMacro("HAVE_FSTATAT", null);
-        exe.defineCMacro("HAVE_ICONV", null);
-        exe.defineCMacro("HAVE_OPENAT", null);
-        exe.defineCMacro("HAVE_PIPE2", null);
-        exe.defineCMacro("HAVE_POSIX_FALLOCATE", null);
-        exe.defineCMacro("HAVE_READLINKAT", null);
-        exe.defineCMacro("HAVE_SETXATTR", null);
-        exe.defineCMacro("HAVE_SPLICE", null);
-        exe.defineCMacro("HAVE_STRUCT_ST_STAT_ST_ATIM", null);
-        exe.defineCMacro("HAVE_UTIMENSAT", null);
-        exe.defineCMacro("HAVE_VMSPLICE", null);
-        exe.defineCMacro("PACKAGE_VERSION", "\"3.14.1\"");
+        lib.defineCMacro("HAVE_COPY_FILE_RANGE", null);
+        lib.defineCMacro("HAVE_FALLOCATE", null);
+        lib.defineCMacro("HAVE_FDATASYNC", null);
+        lib.defineCMacro("HAVE_FORK", null);
+        lib.defineCMacro("HAVE_FSTATAT", null);
+        lib.defineCMacro("HAVE_ICONV", null);
+        lib.defineCMacro("HAVE_OPENAT", null);
+        lib.defineCMacro("HAVE_PIPE2", null);
+        lib.defineCMacro("HAVE_POSIX_FALLOCATE", null);
+        lib.defineCMacro("HAVE_READLINKAT", null);
+        lib.defineCMacro("HAVE_SETXATTR", null);
+        lib.defineCMacro("HAVE_SPLICE", null);
+        lib.defineCMacro("HAVE_STRUCT_ST_STAT_ST_ATIM", null);
+        lib.defineCMacro("HAVE_UTIMENSAT", null);
+        lib.defineCMacro("HAVE_VMSPLICE", null);
+        lib.defineCMacro("PACKAGE_VERSION", "\"3.14.1\"");
 
-        exe.defineCMacro("LIBFUSE_BUILT_WITH_VERSIONED_SYMBOLS", "1");
+        lib.defineCMacro("LIBFUSE_BUILT_WITH_VERSIONED_SYMBOLS", "1");
 
         const c_files = &[_][]const u8{
             "lib/fuse_loop.c",
@@ -135,7 +104,7 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
         };
 
         for (c_files) |c_file| {
-            exe.addCSourceFile(.{
+            lib.addCSourceFile(.{
                 .file = libfuse_dep.path(c_file),
                 .flags = &[_][]const u8{
                     "-Wall",
@@ -155,5 +124,31 @@ pub fn link(exe: *std.Build.Step.Compile, opts: LinkOptions) void {
         }
     }
 
-    exe.linkLibC();
+    lib.linkLibC();
+
+    const exe = b.addExecutable(.{
+        .name = "hello",
+        .root_source_file = .{ .path = "examples/hello.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+
+    exe.addModule("fuse", b.addModule(
+        "fuse",
+        .{ .source_file = .{ .path = b.pathFromRoot("lib.zig") } },
+    ));
+
+    exe.linkLibrary(lib);
+
+    b.installArtifact(exe);
+    b.installArtifact(lib);
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
 }
