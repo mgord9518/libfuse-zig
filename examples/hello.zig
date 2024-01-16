@@ -1,9 +1,9 @@
 // HelloFS - minimal filesystem for example
 
 const std = @import("std");
+const os = std.os;
+const S = os.linux.S;
 const fuse = @import("fuse");
-
-const S = std.os.linux.S;
 
 const file_contents = "Hello, world!\n";
 
@@ -61,8 +61,8 @@ const FuseOperations = struct {
     pub fn getAttr(
         path: [:0]const u8,
         _: *fuse.FileInfo,
-    ) fuse.MountError!std.os.Stat {
-        var stat = std.mem.zeroes(std.os.Stat);
+    ) fuse.MountError!os.Stat {
+        var stat = std.mem.zeroes(os.Stat);
 
         if (std.mem.eql(u8, path, "/")) {
             stat.mode = 0o755 | S.IFDIR;

@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub fn build(b: *std.build.Builder) !void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -10,14 +10,14 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = optimize,
     });
 
-    _ = b.addModule(
+    const fuse_module = b.addModule(
         "fuse",
-        .{ .source_file = .{ .path = b.pathFromRoot("lib.zig") } },
+        .{ .root_source_file = .{ .path = b.pathFromRoot("lib.zig") } },
     );
 
     _ = b.addModule(
         "libfuse",
-        .{ .source_file = libfuse_dep.path("lib.zig") },
+        .{ .root_source_file = libfuse_dep.path("lib.zig") },
     );
 
     const use_system_fuse = b.option(
@@ -45,13 +45,11 @@ pub fn build(b: *std.build.Builder) !void {
 
     // The directory must be surrounded by quotes so that the C
     // preprocessor will substitute it as a string literal
-    const quoted_fusermount_dir = std.fmt.allocPrint(
+    const quoted_fusermount_dir = try std.fmt.allocPrint(
         b.allocator,
         "\"{s}\"",
         .{fusermount_dir},
-    ) catch {
-        @panic("OOM");
-    };
+    );
     defer b.allocator.free(quoted_fusermount_dir);
 
     if (use_system_fuse) {
@@ -118,7 +116,7 @@ pub fn build(b: *std.build.Builder) !void {
                     "-Wno-unused-result",
                     "-Wint-conversion",
 
-                    "-fPIC",
+                    //"-fPIC",
                 },
             });
         }
@@ -133,10 +131,7 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = optimize,
     });
 
-    exe.addModule("fuse", b.addModule(
-        "fuse",
-        .{ .source_file = .{ .path = b.pathFromRoot("lib.zig") } },
-    ));
+    exe.root_module.addImport("fuse", fuse_module);
 
     exe.linkLibrary(lib);
 
