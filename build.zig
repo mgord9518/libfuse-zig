@@ -10,16 +10,6 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    const fuse_module = b.addModule(
-        "fuse",
-        .{ .root_source_file = .{ .path = b.pathFromRoot("lib.zig") } },
-    );
-
-    _ = b.addModule(
-        "libfuse",
-        .{ .root_source_file = libfuse_dep.path("lib.zig") },
-    );
-
     const use_system_fuse = b.option(
         bool,
         "use-system-fuse",
@@ -42,6 +32,21 @@ pub fn build(b: *std.Build) !void {
     const opts = b.addOptions();
     opts.addOption(bool, "use_system_fuse", use_system_fuse);
     opts.addOption([]const u8, "fusermount_dir", fusermount_dir);
+
+    const fuse_module = b.addModule(
+        "fuse",
+        .{
+            .root_source_file = .{
+                .path = b.pathFromRoot("lib.zig"),
+            },
+            .imports = &.{
+                .{
+                    .name = "build_options",
+                    .module = opts.createModule(),
+                },
+            },
+        },
+    );
 
     // The directory must be surrounded by quotes so that the C
     // preprocessor will substitute it as a string literal
@@ -81,7 +86,9 @@ pub fn build(b: *std.Build) !void {
         lib.defineCMacro("HAVE_VMSPLICE", null);
         lib.defineCMacro("PACKAGE_VERSION", "\"3.14.1\"");
 
-        lib.defineCMacro("LIBFUSE_BUILT_WITH_VERSIONED_SYMBOLS", "1");
+        if (target.result.abi == .gnu) {
+            lib.defineCMacro("LIBFUSE_BUILT_WITH_VERSIONED_SYMBOLS", "1");
+        }
 
         const c_files = &[_][]const u8{
             "lib/fuse_loop.c",
@@ -94,6 +101,7 @@ pub fn build(b: *std.Build) !void {
             "lib/fuse_log.c",
             "lib/fuse_loop_mt.c",
             "lib/mount.c",
+            //"lib/mount_bsd.c",
             "lib/mount_util.c",
             "lib/modules/iconv.c",
             "lib/modules/subdir.c",
