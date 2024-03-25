@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const os = std.os;
+const posix = std.posix;
 const S = os.linux.S;
 const fuse = @import("fuse");
 
@@ -61,8 +62,8 @@ const FuseOperations = struct {
     pub fn getAttr(
         path: [:0]const u8,
         _: *fuse.FileInfo,
-    ) fuse.MountError!os.Stat {
-        var stat = std.mem.zeroes(os.Stat);
+    ) fuse.MountError!posix.Stat {
+        var stat = std.mem.zeroes(posix.Stat);
 
         if (std.mem.eql(u8, path, "/")) {
             stat.mode = 0o755 | S.IFDIR;
