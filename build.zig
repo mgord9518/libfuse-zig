@@ -5,22 +5,17 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const libfuse_dep = b.dependency("libfuse", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const use_system_fuse = b.option(
+    const static = b.option(
         bool,
-        "use-system-fuse",
-        "use system FUSE3 library instead of vendored (default: false)",
-    ) orelse false;
+        "static",
+        "build static, more portable but larger file size (default: true)",
+    ) orelse true;
 
-    const fusermount_dir = b.option(
-        []const u8,
-        "fusermount_dir",
-        "The directory to search for fusermount on the host system",
-    ) orelse "/usr/local/bin";
+    //    const fusermount_dir = b.option(
+    //        []const u8,
+    //        "fusermount_dir",
+    //        "The directory to search for fusermount on the host system",
+    //    ) orelse "/usr/local/bin";
 
     const lib = b.addStaticLibrary(.{
         .name = "fuse",
@@ -30,104 +25,27 @@ pub fn build(b: *std.Build) !void {
     });
 
     const opts = b.addOptions();
-    opts.addOption(bool, "use_system_fuse", use_system_fuse);
-    opts.addOption([]const u8, "fusermount_dir", fusermount_dir);
+    opts.addOption(bool, "static", static);
+    //opts.addOption([]const u8, "fusermount_dir", fusermount_dir);
 
-    const fuse_module = b.addModule(
-        "fuse",
-        .{
-            .root_source_file = .{
-                .path = b.pathFromRoot("lib.zig"),
-            },
-            .imports = &.{
-                .{
-                    .name = "build_options",
-                    .module = opts.createModule(),
-                },
-            },
+    const fuse_module = b.addModule("fuse", .{
+        .root_source_file = .{
+            .path = b.pathFromRoot("lib.zig"),
         },
-    );
+        .imports = &.{.{
+            .name = "build_options",
+            .module = opts.createModule(),
+        }},
+    });
 
-    // The directory must be surrounded by quotes so that the C
-    // preprocessor will substitute it as a string literal
-    const quoted_fusermount_dir = try std.fmt.allocPrint(
-        b.allocator,
-        "\"{s}\"",
-        .{fusermount_dir},
-    );
-    defer b.allocator.free(quoted_fusermount_dir);
-
-    if (use_system_fuse) {
-        lib.linkSystemLibrary("fuse3");
+    if (static) {
+        lib.linkLibrary(buildLibfuse(b, .{
+            .name = "fuse",
+            .target = target,
+            .optimize = optimize,
+        }));
     } else {
-        lib.addIncludePath(libfuse_dep.path("include"));
-        lib.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
-
-        // TODO: configurable build opts
-        lib.defineCMacro("FUSERMOUNT_DIR", quoted_fusermount_dir);
-        lib.defineCMacro("_REENTRANT", null);
-        lib.defineCMacro("FUSE_USE_VERSION", "312");
-        lib.defineCMacro("_FILE_OFFSET_BITS", "64");
-
-        lib.defineCMacro("HAVE_COPY_FILE_RANGE", null);
-        lib.defineCMacro("HAVE_FALLOCATE", null);
-        lib.defineCMacro("HAVE_FDATASYNC", null);
-        lib.defineCMacro("HAVE_FORK", null);
-        lib.defineCMacro("HAVE_FSTATAT", null);
-        lib.defineCMacro("HAVE_ICONV", null);
-        lib.defineCMacro("HAVE_OPENAT", null);
-        lib.defineCMacro("HAVE_PIPE2", null);
-        lib.defineCMacro("HAVE_POSIX_FALLOCATE", null);
-        lib.defineCMacro("HAVE_READLINKAT", null);
-        lib.defineCMacro("HAVE_SETXATTR", null);
-        lib.defineCMacro("HAVE_SPLICE", null);
-        lib.defineCMacro("HAVE_STRUCT_ST_STAT_ST_ATIM", null);
-        lib.defineCMacro("HAVE_UTIMENSAT", null);
-        lib.defineCMacro("HAVE_VMSPLICE", null);
-        lib.defineCMacro("PACKAGE_VERSION", "\"3.14.1\"");
-
-        if (target.result.abi == .gnu) {
-            lib.defineCMacro("LIBFUSE_BUILT_WITH_VERSIONED_SYMBOLS", "1");
-        }
-
-        const c_files = &[_][]const u8{
-            "lib/fuse_loop.c",
-            "lib/fuse_lowlevel.c",
-            "lib/fuse_opt.c",
-            "lib/fuse_signals.c",
-            "lib/buffer.c",
-            "lib/compat.c",
-            "lib/fuse.c",
-            "lib/fuse_log.c",
-            "lib/fuse_loop_mt.c",
-            "lib/mount.c",
-            //"lib/mount_bsd.c",
-            "lib/mount_util.c",
-            "lib/modules/iconv.c",
-            "lib/modules/subdir.c",
-            "lib/helper.c",
-            "lib/cuse_lowlevel.c",
-        };
-
-        for (c_files) |c_file| {
-            lib.addCSourceFile(.{
-                .file = libfuse_dep.path(c_file),
-                .flags = &[_][]const u8{
-                    "-Wall",
-                    "-Winvalid-pch",
-                    "-Wextra",
-                    "-Wno-sign-compare",
-                    "-Wstrict-prototypes",
-                    "-Wmissing-declarations",
-                    "-Wwrite-strings",
-                    "-Wno-strict-aliasing",
-                    "-Wno-unused-result",
-                    "-Wint-conversion",
-
-                    //"-fPIC",
-                },
-            });
-        }
+        lib.linkSystemLibrary("fuse3");
     }
 
     lib.linkLibC();
@@ -154,4 +72,96 @@ pub fn build(b: *std.Build) !void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
+}
+
+pub fn buildLibfuse(
+    b: *std.Build,
+    options: std.Build.ExecutableOptions,
+) *std.Build.Step.Compile {
+    const libfuse = b.addStaticLibrary(.{
+        .name = "fuse",
+        .target = options.target,
+        .optimize = options.optimize,
+    });
+
+    // TODO
+    // The directory must be surrounded by quotes so that the C
+    // preprocessor will substitute it as a string literal
+    //    const quoted_fusermount_dir = try std.fmt.allocPrint(
+    //        b.allocator,
+    //        "\"{s}\"",
+    //        .{fusermount_dir},
+    //    );
+    //    defer b.allocator.free(quoted_fusermount_dir);
+    const quoted_fusermount_dir = "\"/usr/local/bin\"";
+
+    const libfuse_dep = b.dependency("libfuse", .{
+        .target = options.target,
+        .optimize = options.optimize,
+    });
+
+    libfuse.root_module.addIncludePath(libfuse_dep.path("include"));
+    libfuse.root_module.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
+
+    // TODO: configurable build opts
+    inline for (.{
+        .{ "FUSERMOUNT_DIR", quoted_fusermount_dir },
+        .{ "_REENTRANT", "" },
+        .{ "FUSE_USE_VERSION", "312" },
+        .{ "_FILE_OFFSET_BITS", "64" },
+        .{ "HAVE_COPY_FILE_RANGE", "" },
+        .{ "HAVE_FALLOCATE", "" },
+        .{ "HAVE_FDATASYNC", "" },
+        .{ "HAVE_FORK", "" },
+        .{ "HAVE_FSTATAT", "" },
+        .{ "HAVE_ICONV", "" },
+        .{ "HAVE_OPENAT", "" },
+        .{ "HAVE_PIPE2", "" },
+        .{ "HAVE_POSIX_FALLOCATE", "" },
+        .{ "HAVE_READLINKAT", "" },
+        .{ "HAVE_SETXATTR", "" },
+        .{ "HAVE_SPLICE", "" },
+        .{ "HAVE_STRUCT_ST_STAT_ST_ATIM", "" },
+        .{ "HAVE_UTIMENSAT", "" },
+        .{ "HAVE_VMSPLICE", "" },
+        .{ "PACKAGE_VERSION", "\"3.14.1\"" },
+    }) |macro| {
+        libfuse.root_module.addCMacro(
+            macro[0],
+            macro[1],
+        );
+    }
+
+    if (options.target.result.abi == .gnu) {
+        libfuse.root_module.addCMacro(
+            "LIBFUSE_BUILT_WITH_VERSIONED_SYMBOLS",
+            "1",
+        );
+    }
+
+    libfuse.root_module.addCSourceFiles(.{
+        .root = libfuse_dep.path("."),
+        .files = &.{
+            "lib/fuse_loop.c",
+            "lib/fuse_lowlevel.c",
+            "lib/fuse_opt.c",
+            "lib/fuse_signals.c",
+            "lib/buffer.c",
+            "lib/compat.c",
+            "lib/fuse.c",
+            "lib/fuse_log.c",
+            "lib/fuse_loop_mt.c",
+            "lib/mount.c",
+            //"lib/mount_bsd.c",
+            "lib/mount_util.c",
+            "lib/modules/iconv.c",
+            "lib/modules/subdir.c",
+            "lib/helper.c",
+            "lib/cuse_lowlevel.c",
+        },
+    });
+
+    libfuse.linkLibC();
+
+    return libfuse;
 }

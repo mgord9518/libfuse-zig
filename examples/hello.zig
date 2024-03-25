@@ -9,10 +9,10 @@ const fuse = @import("fuse");
 const file_contents = "Hello, world!\n";
 
 pub fn main() !void {
-    const allocator = std.heap.page_allocator;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
 
     var args_it = std.process.args();
-
     const argv0 = args_it.next().?;
 
     const mount_dir = args_it.next() orelse {
@@ -26,7 +26,7 @@ pub fn main() !void {
 
     try fuse.run(
         allocator,
-        &[_][:0]const u8{
+        &.{
             argv0,
             mount_dir,
         },

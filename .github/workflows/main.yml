@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: goto-bus-stop/setup-zig@v2
@@ -25,6 +25,7 @@ jobs:
         zig build -Dtarget=arm-linux-gnueabi
         zig build -Dtarget=arm-linux-musleabi
 
+        # TODO
         #    - name: Test
         #      run: |
         #        zig build test
