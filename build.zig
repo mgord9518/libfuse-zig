@@ -17,12 +17,19 @@ pub fn build(b: *std.Build) !void {
     //        "The directory to search for fusermount on the host system",
     //    ) orelse "/usr/local/bin";
 
-    const lib = b.addStaticLibrary(.{
-        .name = "fuse",
-        .root_source_file = .{ .path = "lib.zig" },
+    const exe = b.addExecutable(.{
+        .name = "hello",
+        .root_source_file = .{ .path = "examples/hello.zig" },
         .target = target,
         .optimize = optimize,
     });
+
+    //    const lib = b.addStaticLibrary(.{
+    //        .name = "fuse",
+    //        .root_source_file = .{ .path = "lib.zig" },
+    //        .target = target,
+    //        .optimize = optimize,
+    //    });
 
     const opts = b.addOptions();
     opts.addOption(bool, "static", static);
@@ -39,30 +46,23 @@ pub fn build(b: *std.Build) !void {
     });
 
     if (static) {
-        lib.linkLibrary(buildLibfuse(b, .{
+        const lib = buildLibfuse(b, .{
             .name = "fuse",
             .target = target,
             .optimize = optimize,
-        }));
+        });
+
+        b.installArtifact(lib);
+        exe.linkLibrary(lib);
     } else {
-        lib.linkSystemLibrary("fuse3");
+        exe.linkSystemLibrary("fuse3");
     }
 
-    lib.linkLibC();
-
-    const exe = b.addExecutable(.{
-        .name = "hello",
-        .root_source_file = .{ .path = "examples/hello.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
+    //lib.linkLibC();
 
     exe.root_module.addImport("fuse", fuse_module);
 
-    exe.linkLibrary(lib);
-
     b.installArtifact(exe);
-    b.installArtifact(lib);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
