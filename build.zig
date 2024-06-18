@@ -19,7 +19,7 @@ pub fn build(b: *std.Build) !void {
 
     const exe = b.addExecutable(.{
         .name = "hello",
-        .root_source_file = .{ .path = "examples/hello.zig" },
+        .root_source_file = b.path("examples/hello.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -36,9 +36,7 @@ pub fn build(b: *std.Build) !void {
     //opts.addOption([]const u8, "fusermount_dir", fusermount_dir);
 
     const fuse_module = b.addModule("fuse", .{
-        .root_source_file = .{
-            .path = b.pathFromRoot("lib.zig"),
-        },
+        .root_source_file = b.path("lib.zig"),
         .imports = &.{.{
             .name = "build_options",
             .module = opts.createModule(),
@@ -101,7 +99,7 @@ pub fn buildLibfuse(
     });
 
     libfuse.root_module.addIncludePath(libfuse_dep.path("include"));
-    libfuse.root_module.addIncludePath(.{ .path = b.pathFromRoot("libfuse_config") });
+    libfuse.root_module.addIncludePath(b.path("libfuse_config"));
 
     // TODO: configurable build opts
     inline for (.{
