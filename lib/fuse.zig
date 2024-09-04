@@ -91,7 +91,7 @@ fn genOps(
 
     // TODO: refactor
     if (@hasDecl(Operations, "init")) {
-        ops.readdir = Operations.init;
+        ops.init = Operations.init;
     }
 
     if (@hasDecl(Operations, "readDir")) {
@@ -364,16 +364,21 @@ pub const FillDir = packed struct {
     }
 };
 
-pub const FileInfo = packed struct {
-    flags: c_int,
-    write_page: bool,
-    direct_io: bool,
-    keep_cache: bool,
-    flush: bool,
-    nonseekable: bool,
-    cache_readdir: bool,
-    no_flush: bool,
-    padding: u24,
+pub const FileInfo = extern struct {
+    flags: u32,
+    bitfield: packed struct(u32) {
+        write_page: bool,
+        direct_io: bool,
+        keep_cache: bool,
+        parallel_direct_writes: bool,
+        flush: bool,
+        nonseekable: bool,
+        flock_release: bool,
+        cache_readdir: bool,
+        no_flush: bool,
+        _9: u23,
+    },
+    _64: u32,
     handle: u64,
     lock_owner: u64,
     poll_events: u32,

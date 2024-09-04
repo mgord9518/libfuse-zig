@@ -24,19 +24,12 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    //    const lib = b.addStaticLibrary(.{
-    //        .name = "fuse",
-    //        .root_source_file = .{ .path = "lib.zig" },
-    //        .target = target,
-    //        .optimize = optimize,
-    //    });
-
     const opts = b.addOptions();
     opts.addOption(bool, "static", static);
     //opts.addOption([]const u8, "fusermount_dir", fusermount_dir);
 
     const fuse_module = b.addModule("fuse", .{
-        .root_source_file = b.path("lib.zig"),
+        .root_source_file = b.path("lib/fuse.zig"),
         .imports = &.{.{
             .name = "build_options",
             .module = opts.createModule(),
